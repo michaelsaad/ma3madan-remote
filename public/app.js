@@ -473,6 +473,7 @@ let pst = {}, pat = 0;
 const pthumbs = new Map(); // "n|size|path:version" → data URL (null while asked for)
 const openSecs = new Set(); // sections opened in the list
 const openGroups = new Set(['open']);
+let lastAutoSec = '';
 function psend(cmd) {
   if (conns.ppt.send({ type: 'cmd', cmd }) && navigator.vibrate) navigator.vibrate(12);
 }
@@ -531,6 +532,15 @@ function renderPpt() {
   $('pNotesBox').hidden = !live;
   $('pNotes').textContent = pst.notes || t('noNotes');
   $('pNotes').classList.toggle('empty', !pst.notes);
+  // The section on the projector opens by itself (also after a link jumped to another presentation).
+  if (live && sec) {
+    const k = d.path + '|' + secs.indexOf(sec);
+    if (lastAutoSec !== k) { lastAutoSec = k; openSecs.add(k); }
+  }
+  // The next slide's big picture comes ahead, so moving on shows it at once.
+  if (live && n < d.slides.length) pthumb(n + 1, 'big');
+  $('pFullPos').textContent = live ? t('slideOf', { n: s.slide, c: s.count }) : '';
+  if (!live && document.body.classList.contains('pfull')) setFull(false);
   renderPptSections(d, live ? n : 0);
   renderPptDecks();
   renderStatus();
@@ -571,7 +581,6 @@ function renderPptSections(d, cur) {
     renderPpt();
   };
   for (const b of box.querySelectorAll('.pslide')) b.onclick = () => psend(live ? { action: 'go', n: Number(b.dataset.n) } : { action: 'go', n: Number(b.dataset.n), path: d.path });
-  box.querySelector('.pslide.cur')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 function renderPptDecks() {
@@ -609,16 +618,40 @@ function tickPptTimer() {
 setInterval(tickPptTimer, 500);
 
 // Tap on the slide: the same spot on the projector (links, buttons, videos, triggers).
+// Swipe left or right on the slide: next or back. A tap stays a click on the projector.
+let touch = null, swiped = 0;
+$('pSlide').addEventListener('touchstart', e => { if (e.touches.length === 1) touch = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+$('pSlide').addEventListener('touchend', e => {
+  if (!touch || !showOf()) return;
+  const dx = e.changedTouches[0].clientX - touch.x, dy = e.changedTouches[0].clientY - touch.y;
+  touch = null;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) { swiped = Date.now(); psend({ action: dx < 0 ? 'next' : 'prev' }); }
+});
+function setFull(on) {
+  document.body.classList.toggle('pfull', !!on);
+  if (on && document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  if (!on && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+}
+$('pFullBtn').onclick = e => { e.stopPropagation(); setFull(true); };
+$('pFullClose').onclick = e => { e.stopPropagation(); setFull(false); };
+// Sideways while presenting: the slide fills the screen; upright again: back to the remote.
+matchMedia('(orientation: landscape)').addEventListener('change', e => {
+  if (currentTab === 'ppt' && showOf()) setFull(e.matches);
+});
 $('pSlide').addEventListener('click', e => {
-  if (!showOf()) return;
-  const r = $('pSlide').getBoundingClientRect();
+  if (!showOf() || Date.now() - swiped < 600 || e.target.closest('button')) return;
+  // Where on the slide itself: full screen, the slide sits letterboxed in the phone's screen.
+  const b = $('pSlide').getBoundingClientRect(), ratio = pst.deck?.ratio || b.width / b.height;
+  let w = b.width, h = w / ratio;
+  if (h > b.height) { h = b.height; w = h * ratio; }
+  const r = { left: b.left + (b.width - w) / 2, top: b.top + (b.height - h) / 2, width: w, height: h };
   const sx = (e.clientX - r.left) / r.width, sy = (e.clientY - r.top) / r.height;
   if (sx < 0 || sx > 1 || sy < 0 || sy > 1) return;
   psend({ action: 'click', sx, sy });
   // A ripple where the finger was.
   const dot = document.createElement('i');
   dot.className = 'tap';
-  dot.style.left = (sx * 100) + '%'; dot.style.top = (sy * 100) + '%';
+  dot.style.left = (e.clientX - b.left) + 'px'; dot.style.top = (e.clientY - b.top) + 'px';
   $('pSlide').appendChild(dot);
   setTimeout(() => dot.remove(), 600);
 });
