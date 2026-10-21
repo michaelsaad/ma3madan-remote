@@ -1,7 +1,7 @@
 // Keeps the app working offline (the remote itself talks to the laptop directly; only pairing and
 // connecting use the internet). The signaling API is never cached.
-const CACHE = 'ma3madan-remote-v2';
-const FILES = ['/', '/index.html', '/app.js', '/link.js', '/manifest.webmanifest', '/icons/icon-96.png', '/icons/icon-180.png', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'ma3madan-remote-v3';
+const FILES = ['/', '/index.html', '/app.js', '/link.js', '/manifest.webmanifest', '/icons/icon-96.png', '/icons/icon-180.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-192.png', '/icons/icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

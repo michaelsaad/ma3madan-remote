@@ -86,6 +86,8 @@
   .center h2 { margin: 6px 0 0; font-size: 20px; }
   .center p { margin: 0; color: var(--muted); line-height: 1.6; max-width: 340px; }
   ol.steps { margin: 0; padding-inline-start: 22px; color: var(--text); line-height: 1.9; text-align: start; }
+  ol.steps li { display: list-item; background: none; border: 0; border-radius: 0; padding: 2px 0; }
+  ol.steps li::marker { color: var(--gold); font-weight: 700; }
   .primary { background: var(--accent); border-color: var(--accent); }
   .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -94,7 +96,16 @@
   .laptops button.on { border-color: var(--accent); background: #16274a; }
   .laptops button svg { width: 18px; height: 18px; }
   .soon { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #2b2412; color: var(--gold); font-weight: 600; }
-  .hint { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.6; }
+  .install { display: flex; align-items: center; gap: 12px; padding: 12px 10px 12px 12px; border-radius: 18px;
+    background: linear-gradient(135deg, #16274a, #141c2e); border: 1px solid #24385f; }
+  .install img { width: 44px; height: 44px; border-radius: 11px; flex: none; }
+  .install-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .install-text b { font-size: 14.5px; }
+  .install-text small { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .install-text small svg { width: 16px; height: 16px; vertical-align: -3px; color: var(--accent); }
+  .install .primary { min-height: 40px; min-width: 0; border-radius: 12px; padding: 0 16px; font-size: 14px; font-weight: 600; flex: none; }
+  .install-x { min-height: 32px; min-width: 32px; width: 32px; padding: 0; border: 0; background: transparent; color: var(--muted); flex: none; }
+  .install-x svg { width: 18px; height: 18px; }
   .link-btn { background: none; border: 0; min-height: 0; color: var(--muted); font-size: 13px; text-decoration: underline; padding: 6px; }
 </style>
 </head>
@@ -117,6 +128,7 @@
   <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M2 19h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-slides" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 16v4M8 20h8M7 8h6M7 11h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-retry" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
@@ -138,7 +150,17 @@
       <li data-s="pair2"></li>
       <li data-s="pair3"></li>
     </ol>
-    <p class="hint" data-s="pairHint"></p>
+  </section>
+
+  <!-- Install: one tap on Android; on iPhone, how to add it from the Share menu -->
+  <section id="installCard" class="install" hidden>
+    <img src="/icons/icon-96.png" alt="">
+    <div class="install-text">
+      <b data-s="installTitle"></b>
+      <small id="installHow"></small>
+    </div>
+    <button id="installBtn" class="primary" data-s="install" hidden></button>
+    <button id="installClose" class="install-x" aria-label="Close"><svg><use href="#i-x"/></svg></button>
   </section>
 
   <section id="connectScreen" class="screen center card" hidden>

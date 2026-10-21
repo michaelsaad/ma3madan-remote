@@ -7,26 +7,26 @@ const S = {
   en: {
     standby: 'Standby', freeze: 'Freeze', stop: 'Stop', lyrics: 'Lyrics', hide: 'Hide', marks: 'Checkpoints', addHere: '+ Here',
     next: 'Next: ', nothing: 'Nothing playing', live: 'LIVE', standbyOn: 'Standby', paused: 'Paused', videos: '{n} videos', recents: 'Recents',
-    pairTitle: 'Connect to your laptop', pair1: 'On the laptop, open Ma3madan Play.', pair2: 'Click the phone button at the top, then turn the remote on.',
+    pairTitle: 'Connect to your computer', pair1: 'On the computer, open Ma3madan Play.', pair2: 'Click the phone button at the top, then turn the remote on.',
     pair3: 'Scan the QR code with this phone’s camera.',
-    pairHint: 'Tip: add this page to your home screen (Share → Add to Home Screen, or the browser menu → Install app). Next time it connects by itself.',
-    connecting: 'Connecting to {n}…', connectingText: 'The phone and the laptop need the same Wi-Fi.',
-    failedTitle: 'Couldn’t reach {n}', failedText: 'Make sure Ma3madan Play is open on the laptop with the phone remote turned on, and that both are on the same Wi-Fi.',
+    installTitle: 'Install Ma3madan Remote', install: 'Install', installAndroid: 'One tap away on your home screen, and it connects by itself.', installIos: 'Tap {share} Share, then “Add to Home Screen”.',
+    connecting: 'Connecting to {n}…', connectingText: 'The phone and the computer need the same Wi-Fi.',
+    failedTitle: 'Couldn’t reach {n}', failedText: 'Make sure Ma3madan Play is open on the computer with the phone remote turned on, and that both are on the same Wi-Fi.',
     noNet: 'No internet: connecting needs it for a moment. Once connected, the remote keeps working without it.',
-    retry: 'Try again', forget: 'Forget this laptop', connectedTo: 'Connected to {n}', notConnected: 'Not connected',
+    retry: 'Try again', forget: 'Forget this computer', connectedTo: 'Connected to {n}', notConnected: 'Not connected',
     slidesTab: 'Ma3madan PPT', slidesTitle: 'Ma3madan PPT', soon: 'Coming soon', slidesText: 'The PowerPoint remote: move between slides and see your notes, from the same app.',
     forgetQ: 'Forget “{n}”? You can pair again by scanning its code.',
   },
   ar: {
     standby: 'شاشة الانتظار', freeze: 'تثبيت', stop: 'إيقاف', lyrics: 'الكلمات', hide: 'إخفاء', marks: 'نقاط الفيديو', addHere: '+ هنا',
     next: 'التالي: ', nothing: 'لا يوجد تشغيل', live: 'مباشر', standbyOn: 'انتظار', paused: 'متوقف', videos: '{n} فيديو', recents: 'الأخيرة',
-    pairTitle: 'اربط الموبايل باللابتوب', pair1: 'افتح «معمدان بلاي» على اللابتوب.', pair2: 'اضغط زر الموبايل بالأعلى، ثم شغّل الريموت.',
+    pairTitle: 'اربط الموبايل بالكمبيوتر', pair1: 'افتح «معمدان بلاي» على الكمبيوتر.', pair2: 'اضغط زر الموبايل بالأعلى، ثم شغّل الريموت.',
     pair3: 'امسح الكود بكاميرا هذا الموبايل.',
-    pairHint: 'نصيحة: أضف هذه الصفحة للشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية، أو قائمة المتصفح ← تثبيت التطبيق). في المرة القادمة يتصل وحده.',
-    connecting: 'جارٍ الاتصال بـ {n}…', connectingText: 'يجب أن يكون الموبايل واللابتوب على نفس الواي فاي.',
-    failedTitle: 'تعذّر الوصول إلى {n}', failedText: 'تأكد أن «معمدان بلاي» مفتوح على اللابتوب وريموت الموبايل يعمل، وأن الجهازين على نفس الواي فاي.',
+    installTitle: 'ثبّت Ma3madan Remote', install: 'تثبيت', installAndroid: 'على شاشتك الرئيسية بلمسة واحدة، ويتصل وحده.', installIos: 'اضغط {share} مشاركة، ثم «إضافة إلى الشاشة الرئيسية».',
+    connecting: 'جارٍ الاتصال بـ {n}…', connectingText: 'يجب أن يكون الموبايل والكمبيوتر على نفس الواي فاي.',
+    failedTitle: 'تعذّر الوصول إلى {n}', failedText: 'تأكد أن «معمدان بلاي» مفتوح على الكمبيوتر وريموت الموبايل يعمل، وأن الجهازين على نفس الواي فاي.',
     noNet: 'لا يوجد إنترنت: الاتصال يحتاجه للحظات فقط. بعد الاتصال يعمل الريموت بدونه.',
-    retry: 'حاول مرة أخرى', forget: 'نسيان هذا اللابتوب', connectedTo: 'متصل بـ {n}', notConnected: 'غير متصل',
+    retry: 'حاول مرة أخرى', forget: 'نسيان هذا الكمبيوتر', connectedTo: 'متصل بـ {n}', notConnected: 'غير متصل',
     slidesTab: 'Ma3madan PPT', slidesTitle: 'Ma3madan PPT', soon: 'قريبًا', slidesText: 'ريموت الباوربوينت: تنقّل بين الشرائح وشاهد ملاحظاتك، من نفس التطبيق.',
     forgetQ: 'نسيان «{n}»؟ يمكنك الربط مرة أخرى بمسح الكود.',
   },
@@ -55,7 +55,7 @@ let current = null;                 // the laptop we connect to
   const h = new URLSearchParams(location.hash.slice(1));
   const secret = h.get('pair');
   if (secret && /^[\w-]{16,64}$/.test(secret)) {
-    const name = (h.get('name') || 'Laptop').slice(0, 40);
+    const name = (h.get('name') || 'PC').slice(0, 40);
     laptops = [{ secret, name, at: Date.now() }, ...laptops.filter(l => l.secret !== secret)];
     store.set(laptops);
   }
@@ -65,6 +65,7 @@ let current = null;                 // the laptop we connect to
 // ---------- screens ----------
 function show(which) {
   for (const id of ['pairScreen', 'connectScreen', 'remoteUi']) $(id).hidden = id !== which;
+  renderInstall();
 }
 function renderLaptops() {
   const box = $('laptops');
@@ -299,10 +300,40 @@ for (const b of document.querySelectorAll('.tabs button')) b.onclick = () => {
   $('tab-slides').hidden = b.dataset.tab !== 'slides';
 };
 
+// ---------- install card ----------
+// Shown until the app is installed (or closed): Android gets a real Install button, iPhone the
+// two taps it takes from the Share menu.
+let installPrompt = null;
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
+function renderInstall() {
+  let dismissed = false;
+  try { dismissed = localStorage.getItem('installClosed') === '1'; } catch {}
+  // Not over the remote itself: only on the pairing and connecting screens.
+  const show = !installed() && !dismissed && (isIos || !!installPrompt) && $('remoteUi').hidden;
+  $('installCard').hidden = !show;
+  if (!show) return;
+  $('installBtn').hidden = isIos;
+  $('installHow').innerHTML = isIos
+    ? esc(t('installIos', { share: '@@' })).replace('@@', '<svg><use href="#i-share"/></svg>')
+    : esc(t('installAndroid'));
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; renderInstall(); });
+addEventListener('appinstalled', () => { installPrompt = null; renderInstall(); });
+$('installBtn').onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice.catch(() => {});
+  installPrompt = null;
+  renderInstall();
+};
+$('installClose').onclick = () => { try { localStorage.setItem('installClosed', '1'); } catch {} renderInstall(); };
+
 // ---------- start ----------
 function start() {
   setLang(lang);
   renderLaptops();
+  renderInstall();
   if (!laptops.length) { show('pairScreen'); setStatus(false, t('notConnected')); return; }
   connect(laptops[0]);
 }
