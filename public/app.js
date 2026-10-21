@@ -510,7 +510,7 @@ function renderPpt() {
   st2.textContent = live ? (s.state === 3 ? t('blackOn') : s.state === 4 ? t('whiteOn') : t('presenting')) : t('notPresenting');
   const n = live ? s.slide : 1;
   const box = $('pSlide');
-  box.style.aspectRatio = d ? String(d.ratio) : '16/9';
+  if (d) box.style.setProperty('--r', String(d.ratio));
   box.classList.toggle('live', !!live);
   box.classList.toggle('dark', !!live && s.state === 3);
   box.classList.toggle('light', !!live && s.state === 4);
@@ -546,6 +546,8 @@ function renderPpt() {
   // The next slide's big picture comes ahead, so moving on shows it at once.
   if (live && n < d.slides.length) pthumb(n + 1, 'big');
   $('pFullPos').textContent = live ? t('slideOf', { n: s.slide, c: s.count }) : '';
+  $('pStagePos').textContent = live ? t('slideOf', { n: s.slide, c: s.count }) : '';
+  $('pStageSec').textContent = sec?.name || '';
   if (!live && document.body.classList.contains('pfull')) setFull(false);
   renderPptSections(d, live ? n : 0);
   renderPptDecks();
@@ -647,7 +649,7 @@ matchMedia('(orientation: landscape)').addEventListener('change', e => {
 $('pSlide').addEventListener('click', e => {
   if (!showOf() || Date.now() - swiped < 600 || e.target.closest('button')) return;
   // Where on the slide itself: full screen, the slide sits letterboxed in the phone's screen.
-  const b = $('pSlide').getBoundingClientRect(), ratio = pst.deck?.ratio || b.width / b.height;
+  const box = $('pSlide').getBoundingClientRect(), b = box, ratio = pst.deck?.ratio || b.width / b.height;
   let w = b.width, h = w / ratio;
   if (h > b.height) { h = b.height; w = h * ratio; }
   const r = { left: b.left + (b.width - w) / 2, top: b.top + (b.height - h) / 2, width: w, height: h };
@@ -657,7 +659,7 @@ $('pSlide').addEventListener('click', e => {
   // A ripple where the finger was.
   const dot = document.createElement('i');
   dot.className = 'tap';
-  dot.style.left = (e.clientX - b.left) + 'px'; dot.style.top = (e.clientY - b.top) + 'px';
+  dot.style.left = (e.clientX - box.left) + 'px'; dot.style.top = (e.clientY - box.top) + 'px';
   $('pSlide').appendChild(dot);
   setTimeout(() => dot.remove(), 600);
 });
@@ -793,6 +795,11 @@ function renderMore() {
   }
 }
 setInterval(() => { if (st.countdown) renderMore(); }, 500);
+
+// The pinned slide sits right under the (sticky) header.
+function measureHeader() { document.documentElement.style.setProperty('--hh', document.querySelector('header').getBoundingClientRect().height + 'px'); }
+addEventListener('resize', measureHeader);
+setTimeout(measureHeader, 0);
 
 // ---------- tabs ----------
 function selectTab(tab) {

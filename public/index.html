@@ -122,14 +122,24 @@
   .grow { flex: 1; }
   .pdeck-line { display: flex; align-items: center; gap: 10px; }
   .pdeck { flex: 1; min-width: 0; font-size: 16px; -webkit-line-clamp: 1; }
-  /* The slide: edge to edge in its card, as big as the phone allows */
-  .pslide-main { position: relative; width: calc(100% + 20px); margin: 0 -10px; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #000; touch-action: pan-y; }
-  .pfull-btn { position: absolute; top: 8px; inset-inline-end: 8px; min-height: 40px; min-width: 40px; width: 40px; padding: 0; border-radius: 12px; background: rgba(0,0,0,.55); border-color: rgba(255,255,255,.18); z-index: 3; }
+  /* The slide on the projector: pinned under the header, edge to edge, a third of the screen.
+     Everything else scrolls underneath it. */
+  .pstage { position: sticky; top: var(--hh, 56px); z-index: 4; margin: -6px -14px 0; background: #000; box-shadow: 0 6px 16px rgba(0,0,0,.45); }
+  /* The slide fills the width; a thin strip above and below holds the labels, so they never cover it. */
+  .pslide-main { position: relative; width: 100%; height: auto; aspect-ratio: var(--r, 1.7778) !important; overflow: hidden; background: #000; touch-action: pan-y; }
+  .pstage-bar { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; font-size: 13px; color: #c9d2e3; background: #000; border-bottom: 1px solid var(--line); }
+  .pstage-bar .status { font-size: 11px; padding: 2px 8px; }
+  .pstage-bar b { color: #fff; white-space: nowrap; }
+  .pstage-bar #pStageSec { color: var(--gold); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .pstage-bar .pdeck { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; color: var(--muted); }
+  .pfull-btn { position: absolute; top: 6px; inset-inline-end: 6px; min-height: 32px; min-width: 36px; width: 36px; height: 32px; padding: 0; border-radius: 8px; background: rgba(0,0,0,.45); border: 0; z-index: 3; }
+  .pfull-btn svg { width: 20px !important; height: 20px !important; }
   .pfull-btn svg { width: 22px; height: 22px; }
   .pfull-bar { display: none; }
   /* Full screen: only the slide, with next and back under the thumb. Rotating the phone sideways does it too. */
   body.pfull { overflow: hidden; }
-  body.pfull #pSlide { position: fixed; inset: 0; z-index: 50; width: 100vw; height: 100dvh; margin: 0; aspect-ratio: auto !important; border-radius: 0; box-shadow: none; }
+  body.pfull #pSlide { position: fixed; inset: 0; z-index: 50; width: 100vw; height: 100dvh; max-height: none; margin: 0; aspect-ratio: auto !important; border-radius: 0; box-shadow: none; }
+  body.pfull .pstage-bar { display: none; }
   body.pfull .pfull-btn { display: none; }
   body.pfull .pfull-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 10px; direction: ltr;
     padding: 10px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
@@ -141,7 +151,6 @@
   @media (orientation: landscape) { body.pfull .pfull-bar { background: none; } }
   .pslide-main img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .pslide-main img:not([src]) { display: none; }
-  .pslide-main.live { box-shadow: 0 0 0 2px var(--gold); }
   .pslide-main.dark img { opacity: .15; }
   .pslide-main.light img { opacity: .35; }
   .pslide-main .tap { position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%; border: 2px solid var(--gold); animation: tap .6s ease-out forwards; pointer-events: none; }
@@ -455,8 +464,7 @@
   </section>
 
   <div id="p-remoteUi" class="screen" hidden>
-    <section class="card">
-      <div class="pdeck-line"><span id="pDeck" class="title pdeck" dir="auto"></span><span id="pStatus" class="status"></span></div>
+    <div id="pStage" class="pstage">
       <div id="pSlide" class="pslide-main"><img id="pSlideImg" alt=""><p id="pEmpty" class="pempty" data-s="noDeck"></p>
         <button id="pFullBtn" class="pfull-btn" aria-label="Full screen"><svg><use href="#i-expand"/></svg></button>
         <div id="pFullBar" class="pfull-bar">
@@ -465,6 +473,9 @@
           <button id="pFullClose" aria-label="Close"><svg><use href="#i-shrink"/></svg></button>
           <button data-p="next" class="primary" aria-label="Next"><svg><use href="#i-right"/></svg></button>
         </div></div>
+      <div class="pstage-bar"><span id="pStatus" class="status"></span><b id="pStagePos"></b><span id="pStageSec" dir="auto"></span><span id="pDeck" class="pdeck" dir="auto"></span></div>
+    </div>
+    <section class="card">
       <div class="ppos"><b id="pPos"></b><span id="pSec" dir="auto"></span><span id="pStep"></span><span class="grow"></span><span id="pTimer" class="ptimer"></span></div>
       <p id="pHint" class="phint" data-s="tapHint"></p>
       <div id="pPlayRow" class="prow">
