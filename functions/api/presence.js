@@ -3,7 +3,7 @@
 // devices on the same Wi-Fi share. Only a name and an id are kept, for under a minute.
 // Connecting still needs the computer's approval (see link-host.js in Ma3madan Play).
 //
-// POST /api/presence              body {"host": id, "name": "Michael-PC", "lobby": "<32 hex>"}
+// POST /api/presence              body {"host": id, "name": "Michael-PC", "lobby": "<32 hex>"}  (or {"host": id, "leave": true})
 // GET  /api/presence              → {"hosts": [{ host, name, lobby }]} for the caller's network
 const SEEN_MS = 50 * 1000;
 const cors = {
@@ -30,6 +30,11 @@ export async function onRequest({ request, env }) {
   if (request.method === 'POST') {
     let msg;
     try { msg = JSON.parse(await request.text()); } catch { return json({ error: 'bad json' }, 400); }
+    // A computer turning its remote off leaves the list straight away.
+    if (msg.leave && /^[\w-]{8,40}$/.test(msg.host || '')) {
+      await db.prepare('DELETE FROM hosts WHERE host_id = ? AND net = ?').bind(msg.host, net).run();
+      return json({ ok: true });
+    }
     const name = String(msg.name || '').slice(0, 40);
     if (!/^[\w-]{8,40}$/.test(msg.host || '') || !/^[0-9a-f]{32}$/.test(msg.lobby || '') || !name) return json({ error: 'bad host' }, 400);
     await db.prepare(
