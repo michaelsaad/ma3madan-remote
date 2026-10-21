@@ -235,6 +235,15 @@
   .search svg { width: 18px; height: 18px; color: var(--muted); }
   .search input { flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--text); background: none; border: 0; padding: 12px 0; outline: none; }
   li .sub { display: block; font-size: 11.5px; color: var(--muted); }
+  /* vocal remover mixer and screens */
+  .card-title { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .card-title svg { width: 18px; height: 18px; color: var(--accent); }
+  .mix-card, .screen-card { gap: 10px; padding: 12px; }
+  .seg.wide { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .seg.wide button { padding: 0 4px; }
+  .mix-row { display: grid; grid-template-columns: 64px 1fr 44px; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); direction: ltr; }
+  .mix-row input { accent-color: var(--accent); height: 30px; }
+  .mix-row b { font: 600 12.5px ui-monospace, Consolas, monospace; color: var(--text); text-align: end; }
   .link-btn { background: none; border: 0; min-height: 0; color: var(--muted); font-size: 13px; text-decoration: underline; padding: 6px; }
 </style>
 </head>
@@ -269,6 +278,7 @@
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" stroke="currentColor" stroke-width="2" fill="none"/><path d="M15 15l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-shrink" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-screens" viewBox="0 0 24 24"><rect x="2.5" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/><rect x="9.5" y="9" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/></symbol>
   <symbol id="i-retry" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
@@ -356,6 +366,23 @@
       <button id="cdBtn" class="cd"><svg><use href="#i-timer"/></svg><span id="cdLabel"></span></button>
       <button data-a="karaoke" id="karaokeBtn" class="karaoke"><svg><use href="#i-mic"/></svg><span id="karaokeLabel"></span></button>
     </div>
+    <section id="mixCard" class="card mix-card" hidden>
+      <b class="card-title"><svg><use href="#i-mic"/></svg><span data-s="vocalRemover"></span></b>
+      <div id="mixPresets" class="seg wide">
+        <button data-p="karaoke" data-s="presetKaraoke"></button><button data-p="original" data-s="presetOriginal"></button><button data-p="vocals" data-s="presetVocals"></button>
+      </div>
+      <label class="mix-row"><span data-s="vocalsLabel"></span><input id="mixVocals" type="range" min="0" max="100" step="5"><b id="mixVocalsPct"></b></label>
+      <label class="mix-row"><span data-s="musicLabel"></span><input id="mixMusic" type="range" min="0" max="100" step="5"><b id="mixMusicPct"></b></label>
+    </section>
+
+    <!-- Where the video shows: full screen (one screen) or which screens (two or more) -->
+    <section id="screenCard" class="card screen-card">
+      <b class="card-title"><svg><use href="#i-screens"/></svg><span data-s="screensTitle"></span></b>
+      <div id="screenChips" class="toggles"></div>
+      <button id="fullBtn" class="tog" hidden><span data-s="fullscreen"></span></button>
+      <button id="audioStandbyBtn" class="tog" data-s="audioStandby"></button>
+    </section>
+
     <div id="cdPanel" class="card cd-panel" hidden>
       <b data-s="cdTitle"></b>
       <div class="cd-chips">

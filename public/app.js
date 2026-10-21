@@ -24,6 +24,9 @@ const S = {
     orScan: 'Not there? Scan the QR code instead:',
     approveTitle: 'Approve on {n}', approveText: 'Check that it shows this code, then choose “Trust this device” (or “Just this time”).',
     deniedTitle: 'Not allowed', deniedText: '{n} didn’t allow this phone.', addComputer: 'Add',
+    vocalRemover: 'Vocal remover', presetKaraoke: 'Karaoke', presetOriginal: 'Original', presetVocals: 'Vocals only', vocalsLabel: 'Vocals', musicLabel: 'Music',
+    screensTitle: 'Screens', thisWindow: 'This window', allScreens: 'All screens', screenN: 'Screen {n}', fullscreen: 'Full screen',
+    audioStandby: 'Standby screen for sound only',
     linkPh: 'Paste a YouTube link', paste: 'Paste', playNow: 'Play now', dlVideo: 'Download', sent: 'Sent ✓',
     countdown: 'Countdown', cdTitle: 'Countdown on the screen (minutes)', cdStop: 'Stop the countdown',
     karaoke: 'Karaoke', removeVocals: 'No vocals', separating: 'Separating… {n}%',
@@ -56,6 +59,9 @@ const S = {
     orScan: 'ليس موجودًا؟ امسح الكود بدلًا من ذلك:',
     approveTitle: 'وافق على {n}', approveText: 'تأكد أنه يعرض نفس الرقم، ثم اختر «جهاز موثوق» (أو «هذه المرة فقط»).',
     deniedTitle: 'لم يُسمح', deniedText: '{n} لم يسمح لهذا الموبايل.', addComputer: 'إضافة',
+    vocalRemover: 'إزالة الصوت', presetKaraoke: 'كاريوكي', presetOriginal: 'الأصلي', presetVocals: 'الغناء فقط', vocalsLabel: 'الغناء', musicLabel: 'الموسيقى',
+    screensTitle: 'الشاشات', thisWindow: 'هذه النافذة', allScreens: 'كل الشاشات', screenN: 'شاشة {n}', fullscreen: 'ملء الشاشة',
+    audioStandby: 'شاشة الانتظار مع الصوت فقط',
     linkPh: 'الصق رابط يوتيوب', paste: 'لصق', playNow: 'تشغيل الآن', dlVideo: 'تحميل', sent: 'تم ✓',
     countdown: 'عدّ تنازلي', cdTitle: 'عدّ تنازلي على الشاشة (بالدقائق)', cdStop: 'إيقاف العدّ',
     karaoke: 'كاريوكي', removeVocals: 'إزالة الصوت', separating: 'جارٍ الفصل… {n}%',
@@ -698,6 +704,55 @@ $('autoNextBtn').onclick = () => send({ action: 'autoNext', on: !st.autoNext });
 $('loopBtn').onclick = () => send({ action: 'loop', on: !st.loop });
 $('subsBtn').onclick = () => send({ action: 'subs', on: !st.subsOn });
 
+// ---------- vocal remover mixer, screens, full screen ----------
+const PRESETS = { karaoke: { music: 1, vocals: 0 }, original: { music: 1, vocals: 1 }, vocals: { music: 0, vocals: 1 } };
+let mixTimer = null, mixDragging = false;
+function sendMix() {
+  clearTimeout(mixTimer);
+  mixTimer = setTimeout(() => send({ action: 'mix', music: $('mixMusic').value / 100, vocals: $('mixVocals').value / 100 }), 80);
+}
+for (const id of ['mixVocals', 'mixMusic']) {
+  $(id).addEventListener('input', () => { mixDragging = true; $(id + 'Pct').textContent = $(id).value + '%'; sendMix(); });
+  $(id).addEventListener('change', () => { mixDragging = false; });
+}
+for (const b of document.querySelectorAll('#mixPresets button')) b.onclick = () => send({ action: 'mix', ...PRESETS[b.dataset.p] });
+$('fullBtn').onclick = () => send({ action: 'fullscreen' });
+$('audioStandbyBtn').onclick = () => send({ action: 'audioStandby', on: !st.audioStandby });
+
+function renderMixAndScreens() {
+  const m = st.mix;
+  $('mixCard').hidden = !m;
+  if (m) {
+    for (const [id, k] of [['mixVocals', 'vocals'], ['mixMusic', 'music']]) {
+      if (!mixDragging) $(id).value = Math.round(m[k] * 100);
+      $(id + 'Pct').textContent = Math.round(m[k] * 100) + '%';
+    }
+    for (const b of document.querySelectorAll('#mixPresets button')) {
+      const p = PRESETS[b.dataset.p];
+      b.classList.toggle('on', Math.abs(p.music - m.music) < 0.01 && Math.abs(p.vocals - m.vocals) < 0.01);
+    }
+  }
+  // Screens: "This window", each other screen, "All screens"; full screen in the window.
+  const screens = st.screens || [];
+  const others = screens.filter(x => !x.here);
+  const key = JSON.stringify([screens, st.mode, lang]);
+  const box = $('screenChips');
+  if (box.dataset.key !== key) {
+    box.dataset.key = key;
+    const inWindow = st.mode !== 'presenter';
+    const all = others.length && others.every(x => x.on) && screens.some(x => x.here && x.on);
+    box.innerHTML = [
+      `<button class="tog ${inWindow ? 'on' : ''}" data-q="window">${esc(t('thisWindow'))}</button>`,
+      ...others.map(x => `<button class="tog ${x.on ? 'on' : ''}" data-id="${x.id}">${esc(t('screenN', { n: x.n }))}</button>`),
+      ...(others.length ? [`<button class="tog ${all ? 'on' : ''}" data-q="all">${esc(t('allScreens'))}</button>`] : []),
+    ].join('');
+    for (const b of box.querySelectorAll('button')) b.onclick = () => send(b.dataset.q ? { action: 'screens', q: b.dataset.q } : { action: 'screens', id: Number(b.dataset.id) });
+  }
+  $('fullBtn').hidden = st.mode === 'presenter';
+  $('fullBtn').classList.toggle('on', !!st.fullscreen);
+  $('audioStandbyBtn').classList.toggle('on', st.audioStandby !== false);
+}
+
 function renderMore() {
   // downloads on the computer
   const dls = st.downloads || [];
@@ -725,6 +780,7 @@ function renderMore() {
   $('loopBtn').classList.toggle('on', !!st.loop);
   $('subsBtn').hidden = !st.subs;
   $('subsBtn').classList.toggle('on', !!st.subsOn);
+  renderMixAndScreens();
   // lists
   const lk = JSON.stringify([st.lists, st.activeList, lang]);
   if ($('listChips').dataset.key !== lk) {
