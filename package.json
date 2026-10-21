@@ -1,0 +1,10 @@
+{
+  "name": "ma3madan-remote",
+  "private": true,
+  "description": "Phone remote (installable web app) for Ma3madan Play, connected over WebRTC.",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public --project-name ma3madan-remote --branch main",
+    "db:init": "wrangler d1 execute ma3madan-remote --remote --file schema.sql"
+  }
+}

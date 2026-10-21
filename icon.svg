@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17306b"/>
+      <stop offset="1" stop-color="#0a1534"/>
+    </linearGradient>
+    <linearGradient id="disc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5aa2ff"/>
+      <stop offset="1" stop-color="#2a63de"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fde68a"/>
+      <stop offset="1" stop-color="#f5b82e"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(24 24) scale(4.64)">
+    <rect width="100" height="100" rx="23.3" fill="url(#bg)"/>
+
+    <!-- the remote, standing in the Jordan like the play button of Ma3madan Play -->
+    <rect x="33" y="27" width="34" height="56" rx="10" fill="url(#disc)"/>
+    <circle cx="50" cy="46" r="11.5" fill="none" stroke="#fff" stroke-width="3"/>
+    <path d="M46.5 40.5 L46.5 51.5 L55.5 46 Z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="42" y="63" width="16" height="4" rx="2" fill="#fff" fill-opacity=".85"/>
+    <rect x="42" y="70" width="16" height="4" rx="2" fill="#fff" fill-opacity=".55"/>
+
+    <!-- its signal -->
+    <g fill="none" stroke="#7dd3fc" stroke-width="3.2" stroke-linecap="round">
+      <path d="M72 30 a8 8 0 0 1 6 7"/>
+      <path d="M73 22 a16 16 0 0 1 13 14" opacity=".7"/>
+    </g>
+
+    <!-- the Jordan -->
+    <path d="M10 80 q10 -6 20 0 t20 0 t20 0 t20 0" stroke="#7dd3fc" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M10 90 q10 -6 20 0 t20 0 t20 0 t20 0" stroke="#3d8bff" stroke-width="4" fill="none" stroke-linecap="round" opacity=".75"/>
+
+    <!-- the dove of the Theophany -->
+    <g fill="url(#gold)" transform="translate(50 13.5) scale(0.27)">
+      <path d="M0 12 C -8 2 -28 -2 -46 -20 C -26 -18 -14 -13 -6 -7 C -4 -16 -2 -22 0 -28 C 2 -22 4 -16 6 -7 C 14 -13 26 -18 46 -20 C 28 -2 8 2 0 12 Z"/>
+      <circle cx="0" cy="17" r="6"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,10 @@
+# Cloudflare Pages: the phone app (public/) + functions/ (the /api/signal signaling API).
+name = "ma3madan-remote"
+pages_build_output_dir = "public"
+compatibility_date = "2025-01-01"
+
+# Signaling messages, kept ten minutes (schema.sql).
+[[d1_databases]]
+binding = "DB"
+database_name = "ma3madan-remote"
+database_id = "116d5daf-16d9-441b-b309-8e7d38955728"
