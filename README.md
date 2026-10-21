@@ -22,8 +22,9 @@ It has two tabs: **Ma3madan Play**, and **Ma3madan PPT**, a PowerPoint remote th
 ## Using it
 
 1. In Ma3madan Play, click the phone button at the top and turn the remote on.
-2. Scan the QR code with the phone's camera. The app opens in the browser.
-3. Add it to the home screen (iPhone: **Share → Add to Home Screen**; Android: **⋮ → Install app**).
+2. On the phone, open [ma3madan-remote.pages.dev](https://ma3madan-remote.pages.dev) and tap the computer under **Computers on this Wi-Fi**. On the computer, check that both show the same 4-digit code and choose **Trust this device** (or **Just this time**).
+   Or scan the QR code in Ma3madan Play with the phone's camera: no approval needed.
+3. Install it (Android: the **Install** button; iPhone: **Share → Add to Home Screen**).
 
 From then on, open it from the home screen: it finds the laptop by itself. It can remember several laptops.
 
@@ -41,6 +42,7 @@ The phone and the laptop need to be on the same Wi-Fi, and they need the interne
 ```
 
 - **Pairing.** Ma3madan Play makes a random key and puts it in the QR code, after `#` (never sent to any server). The phone keeps it.
+- **Nearby computers.** While the remote is on, a computer announces its name at `/api/presence`; phones see the computers that share their public internet address, which is what devices on the same Wi-Fi have. Tapping one sends a WebRTC offer to that computer's lobby. Nothing is sent or obeyed until the computer approves; both screens show a 4-digit code made from the two ends' certificates, so no one in between (not even the server) can pose as either. **Trust this device** hands the phone the pairing key over the encrypted connection; **Just this time** doesn't.
 - **Signaling.** To find each other, the two leave a WebRTC offer and answer at `/api/signal`. The room is named by a hash of the key, and every message is encrypted with AES-GCM using a key derived from it, so the server can neither read the messages nor forge them. Messages are deleted after ten minutes.
 - **The connection.** WebRTC opens an encrypted data channel directly between the two devices. The phone receives the player's state and sends commands, the same ones as the Wi-Fi page. Thumbnails come over the same channel.
 
@@ -50,7 +52,8 @@ The phone and the laptop need to be on the same Wi-Fi, and they need the interne
 | `public/link.js` | Pairing, encryption and signaling, shared with Ma3madan Play (`src/link.js` there) |
 | `public/sw.js` · `manifest.webmanifest` | Installable and working offline |
 | `functions/api/signal.js` | The signaling API (a Cloudflare Pages Function) |
-| `schema.sql` | Its D1 table |
+| `functions/api/presence.js` | Nearby computers |
+| `schema.sql` | The D1 tables |
 | `icon.svg` | The app icon |
 
 ## Deploy

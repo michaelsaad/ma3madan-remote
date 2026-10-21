@@ -9,3 +9,13 @@ CREATE TABLE IF NOT EXISTS msgs (
 );
 CREATE INDEX IF NOT EXISTS msgs_room_to ON msgs (room, to_id, id);
 CREATE INDEX IF NOT EXISTS msgs_created ON msgs (created);
+
+-- Computers announcing themselves for "Nearby computers" (see functions/api/presence.js).
+CREATE TABLE IF NOT EXISTS hosts (
+  host_id TEXT PRIMARY KEY,
+  net TEXT NOT NULL,
+  name TEXT NOT NULL,
+  lobby TEXT NOT NULL,
+  seen INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hosts_net ON hosts (net, seen);

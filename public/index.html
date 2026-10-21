@@ -106,6 +106,17 @@
   .install .primary { min-height: 40px; min-width: 0; border-radius: 12px; padding: 0 16px; font-size: 14px; font-weight: 600; flex: none; }
   .install-x { min-height: 32px; min-width: 32px; width: 32px; padding: 0; border: 0; background: transparent; color: var(--muted); flex: none; }
   .install-x svg { width: 18px; height: 18px; }
+  .nearby { align-self: stretch; display: flex; flex-direction: column; gap: 8px; text-align: start; }
+  .nearby-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .mini-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+  .nearby-list { display: flex; flex-direction: column; gap: 8px; }
+  .nearby-list button { justify-content: flex-start; gap: 12px; min-height: 58px; font-size: 15.5px; font-weight: 600; background: #16274a; border-color: #24385f; }
+  .nearby-list button svg { color: var(--accent); }
+  .nearby-list button small { margin-inline-start: auto; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .nearby-none { margin: 0; font-size: 13px; color: var(--muted); }
+  .or { margin: 4px 0 -4px !important; font-size: 13px; color: var(--muted); align-self: stretch; text-align: start; border-top: 1px solid var(--line); padding-top: 12px; }
+  .approve-code { font: 700 44px ui-monospace, Consolas, monospace; letter-spacing: .18em; color: var(--gold); }
+  .laptops button.add { color: var(--muted); }
   .link-btn { background: none; border: 0; min-height: 0; color: var(--muted); font-size: 13px; text-decoration: underline; padding: 6px; }
 </style>
 </head>
@@ -145,6 +156,13 @@
   <section id="pairScreen" class="screen center card" hidden>
     <img src="/icons/icon-192.png" alt="">
     <h2 data-s="pairTitle"></h2>
+    <!-- Computers on the same Wi-Fi with the remote on: tap one, then approve on the computer -->
+    <div class="nearby">
+      <div class="nearby-head"><span data-s="nearbyTitle"></span><i id="nearbyBusy" class="mini-spin"></i></div>
+      <div id="nearbyList" class="nearby-list"></div>
+      <p id="nearbyNone" class="nearby-none" data-s="nearbyNone"></p>
+    </div>
+    <p class="or" data-s="orScan"></p>
     <ol class="steps">
       <li data-s="pair1"></li>
       <li data-s="pair2"></li>
@@ -165,6 +183,7 @@
 
   <section id="connectScreen" class="screen center card" hidden>
     <div id="spinner" class="spinner"></div>
+    <div id="approveCode" class="approve-code" dir="ltr" hidden></div>
     <h2 id="connTitle"></h2>
     <p id="connText"></p>
     <button id="retryBtn" class="primary" hidden><svg><use href="#i-retry"/></svg><span data-s="retry"></span></button>
