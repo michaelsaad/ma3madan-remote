@@ -33,6 +33,12 @@ const S = {
     speed: 'Speed', autoNext: 'Auto-play next', loop: 'Loop', subtitles: 'Subtitles', searchPh: 'Search videos',
     adding: 'Adding…', online: 'YouTube · online', dlFailed: 'Download failed', preparing: 'Preparing…',
     retry: 'Try again', forget: 'Forget this computer', connectedTo: 'Connected to {n}', notConnected: 'Not connected',
+    viaRelay: 'through a relay', appClosed: '{a} isn’t open', appClosedTitle: '{a} isn’t open on {n}',
+    appClosedText: 'Open {a} on the computer: it shows up here by itself, on the same connection.',
+    waitingTitle: 'Waiting for {n}…', waitingText: 'The computer is off, or the phone remote is off in Ma3madan Play (or Ma3madan PPT). It connects as soon as it’s on.',
+    pptWaitingText: 'The computer is off, or the phone remote is off in Ma3madan PPT (or Ma3madan Play). It connects as soon as it’s on.',
+    unknownTitle: '{n} doesn’t know this phone any more', unknownText: 'It was forgotten on the computer. Scan its code again to connect.',
+    upgradeNote: 'Ma3madan Remote was improved: one connection for both apps. Update the apps on the computer, then scan the code once more.',
     slidesTab: 'Ma3madan PPT',
     forgetQ: 'Forget “{n}”? You can pair again by scanning its code.',
     // Ma3madan PPT
@@ -68,6 +74,12 @@ const S = {
     speed: 'السرعة', autoNext: 'تشغيل التالي تلقائيًا', loop: 'تكرار', subtitles: 'الترجمة', searchPh: 'ابحث في الفيديوهات',
     adding: 'جارٍ الإضافة…', online: 'يوتيوب · أونلاين', dlFailed: 'فشل التحميل', preparing: 'جارٍ التجهيز…',
     retry: 'حاول مرة أخرى', forget: 'نسيان هذا الكمبيوتر', connectedTo: 'متصل بـ {n}', notConnected: 'غير متصل',
+    viaRelay: 'عبر وسيط', appClosed: '{a} غير مفتوح', appClosedTitle: '{a} غير مفتوح على {n}',
+    appClosedText: 'افتح {a} على الكمبيوتر: سيظهر هنا وحده، على نفس الاتصال.',
+    waitingTitle: 'في انتظار {n}…', waitingText: 'الكمبيوتر مغلق، أو ريموت الموبايل مطفأ في «معمدان بلاي» (أو «معمدان بي بي تي»). سيتصل بمجرد تشغيله.',
+    pptWaitingText: 'الكمبيوتر مغلق، أو ريموت الموبايل مطفأ في «معمدان بي بي تي» (أو «معمدان بلاي»). سيتصل بمجرد تشغيله.',
+    unknownTitle: '{n} لم يعد يعرف هذا الموبايل', unknownText: 'تم نسيانه على الكمبيوتر. امسح الكود مرة أخرى للاتصال.',
+    upgradeNote: 'تم تحسين Ma3madan Remote: اتصال واحد للبرنامجين. حدّث البرامج على الكمبيوتر، ثم امسح الكود مرة واحدة.',
     slidesTab: 'Ma3madan PPT',
     forgetQ: 'نسيان «{n}»؟ يمكنك الربط مرة أخرى بمسح الكود.',
     notPresenting: 'لا يوجد عرض', presenting: 'مباشر', blackOn: 'أسود', whiteOn: 'أبيض',
@@ -96,165 +108,326 @@ function deviceName() {
   return /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : 'Phone';
 }
 
-// ---------- one connection per tab ----------
-// kind 'play' uses the original element ids and storage key; 'ppt' prefixes both, so phones that
-// paired with Ma3madan Play before keep their computers.
-function makeConn(kind, { onState, onThumb, failedText, isPpt }) {
-  const P = isPpt ? 'p-' : '';
-  const q = id => $(P + id);
-  const storeKey = isPpt ? 'laptops-ppt' : 'laptops';
-  const c = {
-    kind, laptops: [], current: null, pc: null, dc: null, attempt: 0, retryTimer: null, nearbyTimer: null,
-    me: 'p-' + MaLink.randomId(6),
-  };
-  c.load = () => { try { c.laptops = JSON.parse(localStorage.getItem(storeKey) || '[]'); } catch { c.laptops = []; } };
-  c.save = () => { try { localStorage.setItem(storeKey, JSON.stringify(c.laptops)); } catch {} };
-  c.load();
-  const visible = () => currentTab === kind;
-  const status = (on, sub) => { c.statusOn = on; c.statusSub = sub; if (visible()) renderStatus(); };
+// ---------- one connection to the computer, for both tabs ----------
+// The computer has one link for its apps (Ma3madan Play and Ma3madan PPT, whichever are open), so
+// the phone keeps one connection: each message names its app. The computers this phone may
+// connect to (each gave it a key of its own) are in localStorage "computers".
+const store = {
+  get: (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+let computers = store.get('computers', []);
+const saveComputers = () => store.set('computers', computers);
+// Phones paired before the shared link (2026-10) had a key per app: those can't connect any more.
+const hadOldPairs = () => (store.get('laptops', []).length || store.get('laptops-ppt', []).length) > 0;
 
-  c.show = which => {
+const link = {
+  current: null,     // the computer: { hostId, deviceId, key, name } (or { hostId, name, temp } from nearby / QR)
+  state: 'idle',     // idle | connecting | approve | connected | failed | offline | unknown | denied
+  pc: null, ctl: null, img: null, sock: null, attempt: 0, apps: [], route: null, code: '', error: null,
+  retryTimer: null, lastHeard: 0,
+};
+const APP_NAMES = { play: 'Ma3madan Play', ppt: 'Ma3madan PPT' };
+
+function linkClose() {
+  clearTimeout(link.retryTimer);
+  try { link.sock?.close(); } catch {}
+  try { link.ctl?.close(); } catch {}
+  try { link.img?.close(); } catch {}
+  try { link.pc?.close(); } catch {}
+  link.pc = link.ctl = link.img = link.sock = null;
+}
+function setLinkState(state, extra = {}) {
+  Object.assign(link, { state }, extra);
+  for (const v of Object.values(conns)) v.render();
+}
+
+// Connect to a computer. target: { computer } (known), { pair: { hostId, code, name } } (QR code),
+// or { nearby: host } (from "Computers on this Wi-Fi", approved on the computer).
+async function dial(target, { quiet = false } = {}) {
+  linkClose();
+  const my = ++link.attempt;
+  const c = target.computer || (target.pair ? { hostId: target.pair.hostId, name: target.pair.name, temp: true } : { hostId: target.nearby.host, name: target.nearby.name, temp: true });
+  link.current = c;
+  if (target.computer) { c.at = Date.now(); computers = [c, ...computers.filter(x => x !== c)]; saveComputers(); }
+  if (!(quiet && link.state === 'connected')) setLinkState('connecting', { error: null, code: '' });
+  const live = () => my === link.attempt;
+  try {
+    const key = target.computer ? await MaLink.deviceKey(c.key) : target.pair ? await MaLink.pairKey(target.pair.code) : null;
+    const pc = link.pc = new RTCPeerConnection({ iceServers: await MaLink.iceServers() });
+    if (!live()) return;
+    const ctl = link.ctl = pc.createDataChannel('ctl', { ordered: true });
+    link.img = pc.createDataChannel('img', { ordered: true });
+    wireChannels(ctl, link.img, c, target, my);
+    pc.onconnectionstatechange = () => {
+      if (link.pc !== pc) return;
+      if (pc.connectionState === 'connected') MaLink.route(pc).then(r => { link.route = r; for (const v of Object.values(conns)) v.render(); });
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') lost(c);
+    };
+    // Network addresses go as they're found (no waiting): sealed like the offer.
+    const out = [];
+    const signal = async obj => {
+      const msg = key ? { type: obj.type, box: await MaLink.seal(key, obj) } : { ...obj };
+      if (target.computer) msg.dev = c.deviceId;
+      if (target.pair) msg.pair = 1;
+      if (target.nearby) msg.open = 1;
+      if (link.sock?.open) link.sock.send(msg); else out.push(msg);
+    };
+    pc.onicecandidate = e => { if (e.candidate && live()) signal({ type: 'ice', c: e.candidate.toJSON() }); };
+    await pc.setLocalDescription(await pc.createOffer());
+    const offer = { type: 'offer', sdp: pc.localDescription.sdp, device: deviceName() };
+    let remoteSet = false; const early = [];
+    const sent = new Promise((resolve, reject) => {
+      link.sock = MaLink.socket({
+        room: c.hostId, role: 'phone', peer: 'p-' + MaLink.randomId(9),
+        onopen: async () => {
+          if (!live()) return;
+          await signal(offer); // goes first
+          for (const m of out.splice(0)) link.sock.send(m);
+          resolve();
+        },
+        onclose: () => { if (live() && link.state === 'connecting' && !remoteSet) reject(new Error('signal')); },
+        onmessage: async m => {
+          if (!live()) return;
+          if (m.type === 'host') {
+            // The computer isn't there (off, or the remote is off): wait here, it may come.
+            if (!m.online && !remoteSet) setLinkState('offline');
+            else if (m.online && link.state === 'offline') dial(target, { quiet: true });
+            // Connected, and the computer's room has a new holder (the other app took the link
+            // over, or the app restarted): the old connection is gone, connect to the new one now.
+            // (Only if the connection really is gone: the same app may just have reconnected.)
+            else if (m.online && link.state === 'connected' && link.current && !link.current.temp) {
+              const asked = Date.now();
+              linkSend({ type: 'ping' });
+              setTimeout(() => { if (live() && link.lastHeard < asked) dial({ computer: link.current }, { quiet: true }); }, 1500);
+            }
+            return;
+          }
+          if (m.type === 'unknown') { setLinkState('unknown'); linkClose(); return; }
+          let body = m;
+          if (key && m.box) { try { body = await MaLink.unseal(key, m.box); } catch { return; } }
+          if (body.type === 'answer' && typeof body.sdp === 'string' && !remoteSet) {
+            remoteSet = true;
+            if (body.name && body.name !== c.name) { c.name = body.name; if (!c.temp) saveComputers(); }
+            await pc.setRemoteDescription({ type: 'answer', sdp: body.sdp });
+            for (const x of early.splice(0)) pc.addIceCandidate(x).catch(() => {});
+            if (target.nearby) {
+              // The same 4 digits as on the computer: approve there.
+              const code = await MaLink.sasCode(pc.localDescription.sdp, body.sdp);
+              if (live()) setLinkState('approve', { code });
+            }
+          } else if (body.type === 'ice' && body.c) {
+            if (remoteSet) pc.addIceCandidate(body.c).catch(() => {}); else early.push(body.c);
+          }
+        },
+      });
+    });
+    await sent;
+    // Nearby: as long as it takes to approve; else a few seconds is plenty.
+    await MaLink.waitOpen(ctl, target.nearby ? 120000 : 20000);
+  } catch (e) {
+    if (!live()) return;
+    if (link.state === 'offline') return; // waiting for the computer: it comes back by itself
+    if (link.state === 'unknown' || link.state === 'denied') return; // already said why
+    linkFailed(c, e);
+  }
+}
+
+function wireChannels(ctl, img, c, target, my) {
+  const live = () => my === link.attempt;
+  let ready = !!target.computer; // a known computer: in at once; otherwise wait for "paired"/"welcome"
+  const connected = () => {
+    // The signaling socket stays open (it costs nothing while idle): it tells this phone at once
+    // when the computer's link moves to the other app or comes back.
+    link.lastHeard = Date.now();
+    // Pictures asked for on a connection that's gone are asked for again.
+    for (const m of [thumbs, pthumbs]) for (const [k, v] of m) if (v == null) m.delete(k);
+    setLinkState('connected');
+    if (navigator.vibrate) navigator.vibrate(20);
+  };
+  ctl.onmessage = e => {
+    if (!live()) return;
+    link.lastHeard = Date.now();
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.type === 'pong') return;
+    if (m.type === 'paired' && typeof m.key === 'string' && typeof m.deviceId === 'string') {
+      // Trusted: this phone's own key for this computer, kept from now on.
+      const known = { hostId: m.hostId || c.hostId, deviceId: m.deviceId, key: m.key, name: m.name || c.name, at: Date.now() };
+      computers = [known, ...computers.filter(x => x.hostId !== known.hostId)];
+      saveComputers();
+      try { localStorage.removeItem('laptops'); localStorage.removeItem('laptops-ppt'); } catch {}
+      link.current = known;
+      ready = true;
+      return;
+    }
+    if (m.type === 'welcome') { ready = true; return; }
+    if (m.type === 'denied') { setLinkState('denied'); linkClose(); return; }
+    if (m.type === 'hello') {
+      link.apps = Array.isArray(m.apps) ? m.apps : [];
+      if (m.name && link.current) link.current.name = m.name;
+      if (ready) connected();
+      return;
+    }
+    if (m.type === 'apps') { link.apps = Array.isArray(m.apps) ? m.apps : []; for (const v of Object.values(conns)) v.render(); return; }
+    if (m.type === 'state' && conns[m.app]) conns[m.app].onState(m.state);
+    else if (m.type === 'thumb' && conns[m.app]) arrived(m);
+  };
+  const whole = MaLink.assembler();
+  // Only real pictures are shown (nothing else can slip into the page through them).
+  const PICTURE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+  const arrived = m => { const full = whole(m); if (full && conns[full.app] && typeof full.data === 'string' && full.data.length < 4e6 && PICTURE.test(full.data)) conns[full.app].onThumb(full); };
+  img.onmessage = e => { if (!live()) return; link.lastHeard = Date.now(); let m; try { m = JSON.parse(e.data); } catch { return; } if (m.type === 'thumb') arrived(m); };
+  ctl.onclose = () => { if (live()) lost(c); };
+}
+
+// Lost (computer closed, Wi-Fi changed, phone slept…): reconnect quietly, keeping the remote on
+// screen meanwhile.
+function lost(c) {
+  if (link.current !== c || link.state === 'denied' || link.state === 'unknown') return;
+  const was = link.state;
+  linkClose();
+  if (c.temp) { link.current = null; setLinkState(computers.length ? 'failed' : 'idle'); return; }
+  if (was === 'connected') { link.retryTimer = setTimeout(() => dial({ computer: c }, { quiet: true }), 800); return; }
+  linkFailed(c, new Error('closed'));
+}
+function linkFailed(c, e) {
+  linkClose();
+  if (c.temp) { link.current = null; setLinkState('idle'); return; }
+  setLinkState('failed', { error: navigator.onLine === false || /signal|fetch|network/i.test(e?.message || '') ? 'noNet' : 'fail' });
+  // Keep trying quietly every 10 s while the app is open.
+  link.retryTimer = setTimeout(() => { if (link.current === c && document.visibilityState === 'visible') dial({ computer: c }, { quiet: true }); }, 10000);
+}
+function linkSend(msg) {
+  if (link.state === 'connected' && link.ctl?.readyState === 'open') { link.ctl.send(JSON.stringify(msg)); return true; }
+  return false;
+}
+// Heartbeat: the computer answers every ping. Nothing heard for 12 s: the connection is gone
+// even if the phone hasn't noticed (it slept, the Wi-Fi changed): connect again.
+setInterval(() => {
+  if (link.state !== 'connected' || document.visibilityState !== 'visible') return;
+  linkSend({ type: 'ping' });
+  if (!LAN && Date.now() - link.lastHeard > 9000 && link.current && !link.current.temp) dial({ computer: link.current }, { quiet: true });
+}, 4000);
+function forgetComputer(c) {
+  if (!c || !confirm(t('forgetQ', { n: c.name }))) return;
+  computers = computers.filter(x => x !== c && x.hostId !== c.hostId);
+  saveComputers();
+  if (link.current === c || link.current?.hostId === c.hostId) { link.attempt++; linkClose(); link.current = null; }
+  startLink();
+}
+function startLink() {
+  if (LAN) lanStart();
+  else if (computers.length) dial({ computer: computers[0] });
+  else setLinkState('idle');
+}
+
+// ---------- the Wi-Fi page: this same app, served by the computer itself (no internet) ----------
+// Opened from the computer's "No internet here?" QR code (lan.js in the apps): the messages are the
+// same, carried by Server-Sent Events one way and small POSTs the other.
+const LAN = location.protocol === 'http:' && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(location.hostname);
+function lanStart() {
+  const c = { hostId: 'lan', name: location.hostname, lan: true };
+  link.current = c;
+  setLinkState('connecting');
+  const es = new EventSource('/events');
+  let peer = null;
+  const my = ++link.attempt;
+  es.addEventListener('peer', e => {
+    peer = JSON.parse(e.data);
+    // A stand-in for the data channels: sends go to the computer as POSTs.
+    const ctl = { readyState: 'open', send: data => fetch('/msg?peer=' + encodeURIComponent(peer), { method: 'POST', body: data }).catch(() => {}), close() {} };
+    const img = { close() {} };
+    link.ctl = ctl; link.img = img;
+    wireChannels(ctl, img, c, { computer: c }, my);
+  });
+  es.onmessage = e => link.ctl?.onmessage?.({ data: e.data });
+  // EventSource reconnects by itself; meanwhile the remote stays on screen.
+  es.onerror = () => { if (link.state === 'connected') for (const v of Object.values(conns)) v.render(); };
+}
+
+// ---------- one view per tab ----------
+// kind 'play' uses the original element ids; 'ppt' prefixes them with "p-".
+function makeConn(kind, { onState, onThumb, failedText, pairTitle }) {
+  const P = kind === 'ppt' ? 'p-' : '';
+  const q = id => $(P + id);
+  const c = { kind, onState, onThumb, nearbyTimer: null };
+  const visible = () => currentTab === kind;
+  c.send = msg => linkSend({ ...msg, app: kind });
+  c.status = () => {
+    const name = link.current?.name || '';
+    if (link.state === 'connected') return link.apps.includes(kind) ? { on: true, sub: t('connectedTo', { n: name }) + (link.route === 'relay' ? ' · ' + t('viaRelay') : '') } : { on: false, sub: t('appClosed', { a: APP_NAMES[kind] }) };
+    if (link.state === 'connecting' || link.state === 'approve') return { on: false, sub: t('connecting', { n: name }) };
+    return { on: false, sub: t('notConnected') };
+  };
+  const screen = which => {
     for (const id of ['pairScreen', 'connectScreen', 'remoteUi']) q(id).hidden = id !== which;
-    q('approveCode').hidden = true;
     if (which === 'pairScreen' && visible()) c.searchNearby(); else c.stopNearby();
-    renderInstall();
+  };
+  const connectScreen = ({ spin = false, code = '', title, text, retry = false, forget = false }) => {
+    screen('connectScreen');
+    q('spinner').hidden = !spin;
+    q('approveCode').hidden = !code;
+    q('approveCode').textContent = code;
+    q('connTitle').textContent = title;
+    q('connText').textContent = text;
+    q('retryBtn').hidden = !retry;
+    q('forgetBtn').hidden = !forget;
+  };
+  c.render = () => {
+    const l = link.current, name = l?.name || '';
+    c.renderLaptops();
+    q('upgradeNote').hidden = !(hadOldPairs() && !computers.length);
+    switch (link.state) {
+      case 'idle': screen('pairScreen'); break;
+      case 'connecting': connectScreen({ spin: true, title: t('connecting', { n: name }), text: t('connectingText') }); break;
+      case 'approve': connectScreen({ code: link.code, title: t('approveTitle', { n: name }), text: t('approveText') }); break;
+      case 'offline': connectScreen({ spin: true, title: t('waitingTitle', { n: name }), text: t(kind === 'ppt' ? 'pptWaitingText' : 'waitingText'), forget: !l?.temp }); break;
+      case 'unknown': connectScreen({ title: t('unknownTitle', { n: name }), text: t('unknownText'), forget: true }); break;
+      case 'denied':
+        connectScreen({ title: t('deniedTitle'), text: t('deniedText', { n: name }) });
+        setTimeout(() => { if (link.state === 'denied') { link.current = computers[0] || null; setLinkState(computers.length ? 'failed' : 'idle'); } }, 4000);
+        break;
+      case 'failed': connectScreen({ title: t('failedTitle', { n: name }), text: link.error === 'noNet' ? t('noNet') : t(failedText), retry: !!l, forget: !!l && !l.temp }); break;
+      case 'connected':
+        if (link.apps.includes(kind)) screen('remoteUi');
+        else connectScreen({ title: t('appClosedTitle', { a: APP_NAMES[kind], n: name }), text: t('appClosedText', { a: APP_NAMES[kind] }) });
+        break;
+    }
+    if (visible()) { renderStatus(); renderInstall(); }
   };
   c.renderLaptops = () => {
     const box = q('laptops');
-    box.hidden = !c.laptops.length;
-    box.innerHTML = c.laptops.map((l, i) => `<button data-i="${i}" class="${l === c.current ? 'on' : ''}"><svg><use href="#i-laptop"/></svg>${esc(l.name)}</button>`).join('')
-      + `<button class="add" data-add>+ ${esc(t('addComputer'))}</button>`;
-    for (const b of box.querySelectorAll('button[data-i]')) b.onclick = () => { const l = c.laptops[Number(b.dataset.i)]; if (l !== c.current || q('remoteUi').hidden) c.connect(l); };
-    box.querySelector('[data-add]').onclick = () => { c.close(); c.attempt++; c.current = null; c.renderLaptops(); c.show('pairScreen'); status(false, t('notConnected')); };
-  };
-  c.close = () => {
-    clearTimeout(c.retryTimer);
-    try { c.dc?.close(); } catch {}
-    try { c.pc?.close(); } catch {}
-    c.pc = c.dc = null;
-  };
-  c.send = msg => { if (c.dc?.readyState === 'open') { c.dc.send(JSON.stringify(msg)); return true; } return false; };
-
-  c.connect = async (laptop, { quiet = false } = {}) => {
-    c.close();
-    c.current = laptop;
-    laptop.at = Date.now();
-    c.laptops = [laptop, ...c.laptops.filter(l => l !== laptop)];
-    c.save();
-    c.renderLaptops();
-    const my = ++c.attempt;
-    if (!quiet || q('remoteUi').hidden) {
-      c.show('connectScreen');
-      q('spinner').hidden = false;
-      q('retryBtn').hidden = q('forgetBtn').hidden = true;
-      q('connTitle').textContent = t('connecting', { n: laptop.name });
-      q('connText').textContent = t('connectingText');
-    }
-    status(false, t('connecting', { n: laptop.name }));
-    try {
-      const link = await MaLink.deriveLink(laptop.secret);
-      c.pc = new RTCPeerConnection({ iceServers: MaLink.ICE_SERVERS });
-      c.dc = c.pc.createDataChannel('remote', { ordered: true });
-      watch(c.pc, c.dc);
-      wire(c.dc, laptop);
-      await c.pc.setLocalDescription(await c.pc.createOffer());
-      await MaLink.gathered(c.pc);
-      if (my !== c.attempt) return;
-      // The last message id seen before the offer, so an old answer isn't taken for this one.
-      const before = await MaLink.receive(link, c.me, 0);
-      let cursor = before.length ? before[before.length - 1].id : 0;
-      await MaLink.send(link, c.me, 'host', { type: 'offer', sdp: c.pc.localDescription.sdp, ts: Date.now(), device: deviceName() });
-      const deadline = Date.now() + 25000;
-      while (Date.now() < deadline && my === c.attempt) {
-        await new Promise(r => setTimeout(r, 800));
-        const msgs = await MaLink.receive(link, c.me, cursor);
-        for (const m of msgs) {
-          cursor = Math.max(cursor, m.id);
-          if (m.msg?.type === 'answer' && my === c.attempt) {
-            if (m.msg.name && m.msg.name !== laptop.name) { laptop.name = m.msg.name; c.save(); c.renderLaptops(); }
-            await c.pc.setRemoteDescription({ type: 'answer', sdp: m.msg.sdp });
-            await waitOpen(c.dc, 15000);
-            return;
-          }
-        }
-      }
-      throw new Error('timeout');
-    } catch (e) {
-      if (my !== c.attempt) return;
-      c.failed(laptop, e);
-    }
-  };
-
-  c.failed = (laptop, e) => {
-    c.close();
-    c.show('connectScreen');
-    q('spinner').hidden = true;
-    q('retryBtn').hidden = q('forgetBtn').hidden = false;
-    q('connTitle').textContent = t('failedTitle', { n: laptop.name });
-    q('connText').textContent = navigator.onLine === false || /fetch|network|signal/i.test(e?.message || '') ? t('noNet') : t(failedText);
-    status(false, t('notConnected'));
-    // Keep trying quietly every 10 s while the app is open.
-    c.retryTimer = setTimeout(() => { if (c.current === laptop && document.visibilityState === 'visible') c.connect(laptop); }, 10000);
-  };
-
-  function watch(pc, channel) {
-    pc.onconnectionstatechange = () => {
-      if (c.pc === pc && (pc.connectionState === 'failed' || pc.connectionState === 'closed')) channel.onclose?.();
+    box.hidden = !computers.length || LAN;
+    const cur = link.current;
+    box.innerHTML = computers.map((l, i) => {
+      const on = cur && l.hostId === cur.hostId;
+      return `<button data-i="${i}" class="${on ? 'on' : ''}"><svg><use href="#i-laptop"/></svg><span dir="auto">${esc(l.name)}</span>${on ? `<i class="more" data-more="${i}" aria-label="${esc(t('forget'))}">⋯</i>` : ''}</button>`;
+    }).join('') + `<button class="add" data-add>+ ${esc(t('addComputer'))}</button>`;
+    for (const b of box.querySelectorAll('button[data-i]')) b.onclick = e => {
+      const l = computers[Number(b.dataset.i)];
+      if (e.target.closest('[data-more]')) { forgetComputer(l); return; }
+      if (!(link.current?.hostId === l.hostId && link.state === 'connected')) dial({ computer: l });
     };
-  }
-  function wire(channel, laptop, { pending = false } = {}) {
-    const connected = () => {
-      c.show('remoteUi');
-      status(true, t('connectedTo', { n: laptop.name }));
-      if (navigator.vibrate) navigator.vibrate(20);
-    };
-    channel.onopen = () => { if (!pending) connected(); };
-    channel.onmessage = e => {
-      let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (pending && m.type === 'paired' && typeof m.secret === 'string') {
-        pending = false;
-        laptop.secret = m.secret; laptop.name = m.name || laptop.name; delete laptop.temp;
-        c.laptops = [laptop, ...c.laptops.filter(l => l.secret !== m.secret && l !== laptop)];
-        c.save(); c.renderLaptops();
-        connected();
-      } else if (pending && m.type === 'welcome') {
-        pending = false; connected();
-      } else if (pending && m.type === 'denied') {
-        pending = false;
-        c.close();
-        c.show('connectScreen');
-        q('spinner').hidden = true; q('retryBtn').hidden = true; q('forgetBtn').hidden = true;
-        q('connTitle').textContent = t('deniedTitle');
-        q('connText').textContent = t('deniedText', { n: laptop.name });
-        setTimeout(() => { if (!c.current?.secret) c.show('pairScreen'); }, 4000);
-      } else if (m.type === 'state') onState(m.state);
-      else if (m.type === 'thumb') onThumb(m);
-    };
-    channel.onclose = () => {
-      if (c.dc !== channel || channel.gone) return;
-      channel.gone = true;
-      status(false, t('notConnected'));
-      if (pending) { pending = false; channel.onmessage({ data: JSON.stringify({ type: 'denied' }) }); return; }
-      if (!laptop.secret) { c.current = null; c.renderLaptops(); c.show(c.laptops.length ? 'connectScreen' : 'pairScreen'); if (c.laptops.length) c.failed(c.laptops[0], new Error('closed')); return; }
-      // Lost (computer closed, phone slept…): reconnect quietly, keeping the remote on screen meanwhile.
-      c.retryTimer = setTimeout(() => c.connect(laptop, { quiet: true }), 1500);
-    };
-  }
+    box.querySelector('[data-add]').onclick = () => { link.attempt++; linkClose(); link.current = null; setLinkState('idle'); };
+  };
 
   // ---------- nearby computers (no QR code) ----------
-  // Ma3madan PPT announces itself with an id starting "ppt-": each tab lists only its own app.
-  const mine = h => (String(h.host || '').startsWith('ppt-')) === !!isPpt;
   c.searchNearby = async () => {
     clearTimeout(c.nearbyTimer);
+    if (LAN) return;
     try {
-      const hosts = (await MaLink.nearby()).filter(mine);
+      const hosts = await MaLink.nearby();
       if (q('pairScreen').hidden) return;
       const box = q('nearbyList');
-      const key = JSON.stringify(hosts);
+      const key = JSON.stringify([hosts, lang]);
       if (box.dataset.key !== key) {
         box.dataset.key = key;
-        box.innerHTML = hosts.map((h, i) => `<button data-i="${i}" data-host="${esc(h.host)}"><svg><use href="#i-laptop"/></svg><span dir="auto">${esc(h.name)}</span><small>${esc(t('nearbyTap'))}</small></button>`).join('');
-        for (const b of box.querySelectorAll('button')) b.onclick = () => c.connectNearby(hosts[Number(b.dataset.i)]);
+        box.innerHTML = hosts.map((h, i) => `<button data-i="${i}" data-host="${esc(h.host)}"><svg><use href="#i-laptop"/></svg><span dir="auto">${esc(h.name)}<small class="apps">${esc(h.apps.map(a => APP_NAMES[a]).filter(Boolean).join(' · '))}</small></span><small>${esc(t('nearbyTap'))}</small></button>`).join('');
+        for (const b of box.querySelectorAll('button')) b.onclick = () => {
+          const h = hosts[Number(b.dataset.i)];
+          const known = computers.find(x => x.hostId === h.host);
+          dial(known ? { computer: known } : { nearby: h });
+        };
       }
       q('nearbyNone').hidden = !!hosts.length;
     } catch {}
@@ -262,124 +435,51 @@ function makeConn(kind, { onState, onThumb, failedText, isPpt }) {
   };
   c.stopNearby = () => clearTimeout(c.nearbyTimer);
 
-  c.connectNearby = async host => {
-    c.close();
-    const laptop = { name: host.name, temp: true };
-    c.current = laptop;
-    const my = ++c.attempt;
-    c.show('connectScreen');
-    q('spinner').hidden = false;
-    q('retryBtn').hidden = q('forgetBtn').hidden = true;
-    q('connTitle').textContent = t('connecting', { n: host.name });
-    q('connText').textContent = t('connectingText');
-    status(false, t('connecting', { n: host.name }));
-    try {
-      c.pc = new RTCPeerConnection({ iceServers: MaLink.ICE_SERVERS });
-      c.dc = c.pc.createDataChannel('remote', { ordered: true });
-      watch(c.pc, c.dc);
-      wire(c.dc, laptop, { pending: true });
-      await c.pc.setLocalDescription(await c.pc.createOffer());
-      await MaLink.gathered(c.pc);
-      if (my !== c.attempt) return;
-      const before = await MaLink.receiveOpen(host.lobby, c.me, 0);
-      let cursor = before.length ? before[before.length - 1].id : 0;
-      await MaLink.sendOpen(host.lobby, c.me, 'host', { type: 'offer', sdp: c.pc.localDescription.sdp, ts: Date.now(), device: deviceName() });
-      const deadline = Date.now() + 25000;
-      while (Date.now() < deadline && my === c.attempt) {
-        await new Promise(r => setTimeout(r, 800));
-        for (const m of await MaLink.receiveOpen(host.lobby, c.me, cursor)) {
-          cursor = Math.max(cursor, m.id);
-          if (m.msg?.type === 'answer' && typeof m.msg.sdp === 'string' && my === c.attempt) {
-            await c.pc.setRemoteDescription({ type: 'answer', sdp: m.msg.sdp });
-            // The same 4 digits as on the computer: approve there.
-            const code = await MaLink.sasCode(c.pc.localDescription.sdp, m.msg.sdp);
-            await waitOpen(c.dc, 15000);
-            if (my !== c.attempt || !laptop.temp) return;
-            q('spinner').hidden = true;
-            q('approveCode').hidden = false;
-            q('approveCode').textContent = code;
-            q('connTitle').textContent = t('approveTitle', { n: host.name });
-            q('connText').textContent = t('approveText');
-            return;
-          }
-        }
-      }
-      throw new Error('timeout');
-    } catch (e) {
-      if (my !== c.attempt) return;
-      c.close();
-      c.show('pairScreen');
-    }
+  q('retryBtn').onclick = () => link.current && dial(link.current.temp ? { computer: computers[0] } : { computer: link.current });
+  q('forgetBtn').onclick = () => forgetComputer(computers.find(x => x.hostId === link.current?.hostId));
+  c.resume = () => {
+    if (kind !== 'play') return; // one connection: resume once
+    if (link.current && !link.current.temp && link.state !== 'connected' && link.state !== 'approve') dial({ computer: link.current }, { quiet: true });
+    else if (link.state === 'connected' && Date.now() - link.lastHeard > 6000) dial({ computer: link.current }, { quiet: true });
   };
-
-  q('retryBtn').onclick = () => c.current && c.connect(c.current);
-  q('forgetBtn').onclick = () => {
-    if (!c.current || !confirm(t('forgetQ', { n: c.current.name }))) return;
-    c.laptops = c.laptops.filter(l => l !== c.current);
-    c.save();
-    c.close();
-    c.current = null;
-    c.start();
-  };
-  c.start = () => {
-    c.renderLaptops();
-    if (!c.laptops.length) { c.show('pairScreen'); status(false, t('notConnected')); return; }
-    c.connect(c.laptops[0]);
-  };
-  c.resume = () => { if (c.current?.secret && c.dc?.readyState !== 'open') c.connect(c.current, { quiet: true }); };
   return c;
-}
-
-function waitOpen(channel, ms) {
-  return new Promise((ok, fail) => {
-    if (channel.readyState === 'open') return ok();
-    const t0 = setTimeout(() => fail(new Error('no channel')), ms);
-    channel.addEventListener('open', () => { clearTimeout(t0); ok(); }, { once: true });
-  });
 }
 
 const conns = {};
 conns.play = makeConn('play', { onState: s => { st = s; at = Date.now(); render(); }, onThumb: m => { thumbs.set(m.id + ':' + m.v, m.data); applyThumb(m.id, m.v); }, failedText: 'failedText' });
-conns.ppt = makeConn('ppt', { onState: s => { pst = s; pat = Date.now(); renderPpt(); }, onThumb: m => pptThumbArrived(m), failedText: 'pptFailedText', isPpt: true });
+conns.ppt = makeConn('ppt', { onState: s => { pst = s; pat = Date.now(); renderPpt(); }, onThumb: m => pptThumbArrived(m), failedText: 'pptFailedText' });
 
-// A scanned QR code opens #pair=<key>&name=<computer>[&app=ppt]: remember it, and take it out of the address.
-// With the app already open in the browser, scanning only changes the address's # part: then
-// connect to the new computer right away.
+// A scanned QR code opens #pair=<computer id>.<pairing code>&name=<computer>: connect with it
+// (the computer trusts this phone and gives it its own key), and take it out of the address.
+// With the app already open in the browser, scanning only changes the address's # part.
 function takePairLink() {
   const h = new URLSearchParams(location.hash.slice(1));
-  const secret = h.get('pair');
-  let paired = null;
-  if (secret && /^[\w-]{16,64}$/.test(secret)) {
-    const c = h.get('app') === 'ppt' ? conns.ppt : conns.play;
-    const name = (h.get('name') || 'PC').slice(0, 40);
-    c.laptops = [{ secret, name, at: Date.now() }, ...c.laptops.filter(l => l.secret !== secret)];
-    c.save();
-    paired = c;
-  }
+  const pair = h.get('pair') || '';
   if (location.hash) history.replaceState(null, '', location.pathname);
-  return paired;
+  const m = /^([\w-]{8,48})\.([\w-]{8,64})$/.exec(pair);
+  if (!m) return pair ? 'old' : null;
+  const name = (h.get('name') || 'PC').slice(0, 40);
+  // Already paired with this computer: just connect.
+  const known = computers.find(x => x.hostId === m[1]);
+  return known ? { computer: known } : { pair: { hostId: m[1], code: m[2], name } };
 }
-const pairedNow = takePairLink()?.kind || null;
 addEventListener('hashchange', () => {
-  const c = takePairLink();
-  if (!c) return;
-  selectTab(c.kind);
-  c.connect(c.laptops[0]);
+  const target = takePairLink();
+  if (target && target !== 'old') dial(target);
 });
 
 // ---------- header status: the visible tab's connection ----------
 let currentTab = 'play';
 function renderStatus() {
-  const c = conns[currentTab];
-  $('dot').classList.toggle('on', !!c.statusOn);
-  $('whoSub').textContent = c.statusSub || '';
-  $('status').hidden = currentTab !== 'play' || !c.statusOn;
+  const s = conns[currentTab].status();
+  $('dot').classList.toggle('on', !!s.on);
+  $('whoSub').textContent = s.sub || '';
+  $('status').hidden = currentTab !== 'play' || !s.on;
 }
 
-// Back from the background (screen was off, another app was open): reconnect if needed.
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') for (const c of Object.values(conns)) c.resume();
-});
+// Back from the background (screen was off, another app was open), or back online: reconnect if needed.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') conns.play.resume(); });
+addEventListener('online', () => conns.play.resume());
 
 // ---------- Ma3madan Play: the video remote ----------
 let st = {}, at = 0;
@@ -830,7 +930,7 @@ function renderInstall() {
   try { dismissed = localStorage.getItem('installClosed') === '1'; } catch {}
   // Not over the remote itself: only on the pairing and connecting screens.
   const remoteShown = !$(currentTab === 'ppt' ? 'p-remoteUi' : 'remoteUi').hidden;
-  const show = !installed() && !dismissed && (isIos || !!installPrompt) && !remoteShown;
+  const show = !LAN && !installed() && !dismissed && (isIos || !!installPrompt) && !remoteShown;
   $('installCard').hidden = !show;
   if (!show) return;
   $('installBtn').hidden = isIos;
@@ -852,17 +952,16 @@ $('installClose').onclick = () => { try { localStorage.setItem('installClosed', 
 // ---------- start ----------
 setLang(lang);
 {
-  let tab = pairedNow;
-  if (!tab) { try { tab = localStorage.getItem('tab'); } catch {} }
-  if (!tab) tab = !conns.play.laptops.length && conns.ppt.laptops.length ? 'ppt' : 'play';
+  const target = takePairLink();
+  let tab = null;
+  try { tab = localStorage.getItem('tab'); } catch {}
   currentTab = tab === 'ppt' ? 'ppt' : 'play';
   for (const x of document.querySelectorAll('.tabs button')) x.classList.toggle('on', x.dataset.tab === currentTab);
   $('tab-play').hidden = currentTab !== 'play';
   $('tab-slides').hidden = currentTab !== 'ppt';
+  if (target && target !== 'old' && !LAN) dial(target); else startLink();
 }
-conns.play.start();
-conns.ppt.start();
 renderPpt();
 
 // Works offline and installs as an app.
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator && !LAN) navigator.serviceWorker.register('/sw.js').catch(() => {});

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://ma3madan-remote.pages.dev wss://ma3madan-remote.pages.dev; manifest-src 'self'">
 <meta name="theme-color" content="#0b1120">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -117,6 +117,9 @@
   .or { margin: 4px 0 -4px !important; font-size: 13px; color: var(--muted); align-self: stretch; text-align: start; border-top: 1px solid var(--line); padding-top: 12px; }
   .approve-code { font: 700 44px ui-monospace, Consolas, monospace; letter-spacing: .18em; color: var(--gold); }
   .laptops button.add { color: var(--muted); }
+  .laptops button .more { font-style: normal; font-size: 18px; line-height: 1; padding: 4px 2px 8px 8px; margin-inline-end: -4px; color: var(--muted); }
+  .nearby-list button span small.apps { display: block; margin: 2px 0 0; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .note { margin: 0; padding: 10px 12px; border-radius: 10px; background: #2a2412; border: 1px solid #5a4a1a; color: #f3d98b; font-size: 13px; text-align: start; }
   /* ---------- Ma3madan PPT ---------- */
   .ppt-logo { width: 64px; height: 64px; color: var(--gold); }
   .grow { flex: 1; }
@@ -304,6 +307,7 @@
   <section id="pairScreen" class="screen center card" hidden>
     <img src="/icons/icon-192.png" alt="">
     <h2 data-s="pairTitle"></h2>
+    <p id="upgradeNote" class="note" data-s="upgradeNote" hidden></p>
     <!-- Computers on the same Wi-Fi with the remote on: tap one, then approve on the computer -->
     <div class="nearby">
       <div class="nearby-head"><span data-s="nearbyTitle"></span><i id="nearbyBusy" class="mini-spin"></i></div>
@@ -441,6 +445,7 @@
   <section id="p-pairScreen" class="screen center card" hidden>
     <svg class="ppt-logo"><use href="#i-slides"/></svg>
     <h2 data-s="pptPairTitle"></h2>
+    <p id="p-upgradeNote" class="note" data-s="upgradeNote" hidden></p>
     <div class="nearby">
       <div class="nearby-head"><span data-s="nearbyTitle"></span><i class="mini-spin"></i></div>
       <div id="p-nearbyList" class="nearby-list"></div>

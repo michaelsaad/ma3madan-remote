@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS hosts (
   net TEXT NOT NULL,
   name TEXT NOT NULL,
   lobby TEXT NOT NULL,
-  seen INTEGER NOT NULL
+  seen INTEGER NOT NULL,
+  auth TEXT,  -- hash of the computer's secret: only it can change its entry
+  apps TEXT   -- which apps are open there: "play,ppt"
 );
 CREATE INDEX IF NOT EXISTS hosts_net ON hosts (net, seen);

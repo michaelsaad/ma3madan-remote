@@ -1,0 +1,14 @@
+# The signaling rooms (worker/src/index.js): a Durable Object per computer. The Pages app reaches
+# them through its ROOMS binding (../wrangler.toml, functions/api/ws.js).
+name = "ma3madan-signal"
+main = "src/index.js"
+compatibility_date = "2025-04-01"
+workers_dev = false
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
