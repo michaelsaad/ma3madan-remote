@@ -8,6 +8,7 @@
     "deploy:worker": "wrangler deploy --config worker/wrangler.toml",
     "deploy:pages": "wrangler pages deploy public --project-name ma3madan-remote --branch main",
     "db:init": "wrangler d1 execute ma3madan-remote --remote --file schema.sql",
-    "db:migrate": "wrangler d1 execute ma3madan-remote --remote --file migrations/0002_hosts_auth.sql"
+    "db:migrate": "wrangler d1 execute ma3madan-remote --remote --file migrations/0002_hosts_auth.sql",
+    "turn": "node scripts/turn.js"
   }
 }
