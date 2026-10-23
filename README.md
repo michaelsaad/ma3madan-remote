@@ -74,12 +74,7 @@ npm run db:init       # once: create the tables
 npm run db:migrate    # once: the 2026-10 columns
 ```
 
-**TURN relay.** Create a TURN key in the Cloudflare dashboard (Realtime → TURN Server), then give the Pages project its id and token as secrets (never in the code):
-
-```bash
-npx wrangler pages secret put TURN_KEY_ID --project-name ma3madan-remote
-npx wrangler pages secret put TURN_KEY_TOKEN --project-name ma3madan-remote
-```
+**TURN relay.** Create a TURN key in the Cloudflare dashboard (Realtime → TURN Server), then run `npm run turn`: it asks for the Key ID and the API token (hidden), stores them as the Pages project's secrets (never in the code) and republishes.
 
 Without them the app still works, directly over the Wi-Fi only.
 
