@@ -16,8 +16,9 @@ import { DurableObject } from 'cloudflare:workers';
 const ID = /^[\w-]{8,48}$/;
 const MAX_MSG = 64 * 1024;
 const MAX_PHONES = 24;
-// Per phone socket: a connection takes ~20 messages (offer, addresses); more than this is abuse.
-const PHONE_BURST = 120, PHONE_WINDOW_MS = 60 * 1000;
+// Per phone socket: a connection takes ~20 messages; a phone talking through the room (no direct
+// path) sends a few a second, and pictures in parts. More than this is abuse.
+const PHONE_BURST = 3000, PHONE_WINDOW_MS = 60 * 1000;
 
 const sha256 = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))]
   .map(b => b.toString(16).padStart(2, '0')).join('');
