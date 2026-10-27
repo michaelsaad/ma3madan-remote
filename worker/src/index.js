@@ -14,7 +14,9 @@
 import { DurableObject } from 'cloudflare:workers';
 
 const ID = /^[\w-]{8,48}$/;
-const MAX_MSG = 64 * 1024;
+// A phone sends small messages; the computer, through the room, also the whole state (the program,
+// recents, the slide list) as one message, which can pass 64 KB. A socket message holds 1 MB at most.
+const MAX_MSG = 64 * 1024, MAX_HOST_MSG = 900 * 1024;
 const MAX_PHONES = 24;
 // Per phone socket: a connection takes ~20 messages; a phone talking through the room (no direct
 // path) sends a few a second, and pictures in parts. More than this is abuse.
@@ -73,11 +75,11 @@ export class Room extends DurableObject {
   }
 
   async webSocketMessage(ws, raw) {
-    if (typeof raw !== 'string' || raw.length > MAX_MSG) return;
+    const me = ws.deserializeAttachment() || {};
+    if (typeof raw !== 'string' || raw.length > (me.role === 'host' ? MAX_HOST_MSG : MAX_MSG)) return;
     let m;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
-    const me = ws.deserializeAttachment() || {};
     if (me.role === 'phone') {
       const c = this.counts.get(ws) || { n: 0, since: Date.now() };
       if (Date.now() - c.since > PHONE_WINDOW_MS) { c.n = 0; c.since = Date.now(); }
