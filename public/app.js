@@ -754,8 +754,8 @@ function pthumb(n, size, deck = pst.deck) {
   if (conns.ppt.send({ type: 'thumb', id, v: deck.v })) pthumbs.set(k, null);
   return null;
 }
-// The computer also sends a picture of the projector after each step ("live|slide|click|path"):
-// the slide with its animations as far as they've gone. Shown while it's the step on the screen.
+// The computer also sends a picture of the projector whenever it changes ("live|slide|click|path"):
+// the slide with its animations as far as they've gone. The newest one of the slide on the screen shows.
 let liveShot = null;
 function pptThumbArrived(m) {
   if (m.id.startsWith('live|')) {
@@ -788,7 +788,7 @@ function renderPpt() {
   box.classList.toggle('live', !!live);
   box.classList.toggle('light', !!live && s.state === 4);
   const img = $('pSlideImg');
-  const shot = live && s.state !== 3 && s.state !== 4 && liveShot && liveShot.path === s.path && liveShot.slide === s.slide && liveShot.click <= (s.click || 0) ? liveShot.data : null; // (an earlier step of this slide until the new picture comes)
+  const shot = live && s.state !== 3 && s.state !== 4 && liveShot && liveShot.path === s.path && liveShot.slide === s.slide ? liveShot.data : null; // the newest picture of this slide (it is what the projector shows)
   if (shot) { img.dataset.id = 'live'; if (img.src !== shot) img.src = shot; }
   else if (d && n) {
     const id = `${n}|big|${d.path}`;
